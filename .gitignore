@@ -1,0 +1,11 @@
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Temporary pre-monorepo copies kept only because local dev processes locked them during migration
+/pakapakaya_backend/
+/pakapakaya_flutter/
+
+# Legacy reference app, not part of the active rebuild monorepo
+/bmad/

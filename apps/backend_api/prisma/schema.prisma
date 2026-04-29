@@ -1,0 +1,310 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  VENDOR
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum VendorStatus {
+  OPEN
+  PAUSED
+  CLOSED
+}
+
+enum SubscriptionTier {
+  FREE
+  STANDARD
+  PRO
+}
+
+enum TrustStatus {
+  PENDING
+  APPROVED
+  BLOCKED
+}
+
+enum BatchStatus {
+  DRAFT
+  OPEN
+  CLOSED
+  COMPLETED
+}
+
+enum DeliveryMode {
+  PICKUP
+  DELIVERY
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  VERIFICATION
+  CONFIRMED
+  READY
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+  BARAKAT
+}
+
+enum PaymentStatus {
+  PENDING
+  UPLOADED
+  CONFIRMED
+  REJECTED
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  AUDIO
+  OFFER
+  SYSTEM
+}
+
+enum MessageDeliveryState {
+  SENDING
+  SENT
+  DELIVERED
+  FAILED
+}
+
+enum PaymentMethodType {
+  EASYPAISA
+  BANK_TRANSFER
+  JAZZ_CASH
+}
+
+enum ModerationStatus {
+  OPEN
+  REVIEWING
+  RESOLVED
+  DISMISSED
+}
+
+model User {
+  id             String   @id @default(cuid())
+  phone          String   @unique
+  name           String
+  imageUrl       String?
+  role           UserRole
+  status         UserStatus
+  trustScore     Int      @default(100)
+  codStrikeCount Int      @default(0)
+  latitude       Float?
+  longitude      Float?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  vendorProfile  VendorProfile?
+  buyerOrders    Order[]   @relation("BuyerOrders")
+  messages       Message[]
+  trusts         TrustRelationship[]
+  reportsFiled   ModerationReport[] @relation("ReportsFiled")
+  reportsAgainst ModerationReport[] @relation("ReportsAgainst")
+  codStrikes     CodStrike[]
+  sessions       DevSession[]
+}
+
+model DevSession {
+  token     String   @id
+  userId    String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VendorProfile {
+  id                String            @id @default(cuid())
+  userId            String            @unique
+  storeName         String
+  bio               String            @default("")
+  status            VendorStatus
+  customStatus      String?
+  subscriptionTier  SubscriptionTier
+  packagingCost     Float             @default(0)
+  monthlyOrderCount Int               @default(0)
+  billingCycleStart DateTime          @default(now())
+  verifiedBadge     Boolean           @default(false)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  paymentMethods    PaymentMethod[]
+  inventoryItems    InventoryItem[]
+  trusts            TrustRelationship[]
+  orders            Order[]           @relation("VendorOrders")
+  chatRooms         ChatRoom[]
+  barakatMeals      BarakatMeal[]
+}
+
+model PaymentMethod {
+  id            String            @id @default(cuid())
+  vendorId      String
+  type          PaymentMethodType
+  label         String
+  accountName   String
+  maskedAccount String
+  instructions  String
+  isActive      Boolean           @default(true)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  vendor        VendorProfile     @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+}
+
+model TrustRelationship {
+  vendorId     String
+  userId       String
+  status       TrustStatus
+  requestedAt  DateTime           @default(now())
+  reviewedAt   DateTime?
+  reviewReason String?
+  vendor       VendorProfile      @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([vendorId, userId])
+}
+
+model InventoryItem {
+  id          String        @id @default(cuid())
+  vendorId    String
+  name        String
+  description String
+  imageUrl    String?
+  basePrice   Float
+  isActive    Boolean       @default(true)
+  category    String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  vendor      VendorProfile @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  batches     Batch[]
+}
+
+model Batch {
+  id                     String      @id @default(cuid())
+  itemId                 String
+  availableFrom          DateTime
+  availableUntil         DateTime
+  cutoffTime             DateTime
+  maxQuantity            Int
+  remainingQuantity      Int
+  status                 BatchStatus
+  acceptOrdersDuringPrep Boolean     @default(false)
+  createdAt              DateTime    @default(now())
+  updatedAt              DateTime    @updatedAt
+  item                   InventoryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  orders                 Order[]
+  barakatMeals           BarakatMeal[]
+}
+
+model Order {
+  id                      String                 @id @default(cuid())
+  batchId                 String
+  buyerId                 String
+  vendorId                String
+  status                  OrderStatus
+  logisticsMode           DeliveryMode
+  isByob                  Boolean                @default(false)
+  quantity                Int
+  unitPriceSnapshot       Float
+  packagingFeeSnapshot    Float
+  totalAmount             Float
+  paymentStatus           PaymentStatus
+  paymentScreenshotUrl    String?
+  deliveryLabel           String?
+  deliveryAddressLine     String?
+  deliveryLatitude        Float?
+  deliveryLongitude       Float?
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
+  batch                   Batch                  @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  buyer                   User                   @relation("BuyerOrders", fields: [buyerId], references: [id], onDelete: Cascade)
+  vendor                  VendorProfile          @relation("VendorOrders", fields: [vendorId], references: [id], onDelete: Cascade)
+  chatRoom                ChatRoom?
+  giftMeals               GiftMeal[]
+  codStrikes              CodStrike[]
+}
+
+model ChatRoom {
+  id            String      @id @default(cuid())
+  orderId       String      @unique
+  vendorId      String
+  buyerId       String
+  isBlocked     Boolean     @default(false)
+  lastMessageAt DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  order         Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  vendor        VendorProfile @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  messages      Message[]
+}
+
+model Message {
+  id            String               @id @default(cuid())
+  roomId         String
+  senderId       String
+  type           MessageType
+  content        String
+  metadata       Json?
+  deliveryState  MessageDeliveryState
+  createdAt      DateTime             @default(now())
+  room           ChatRoom             @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  sender         User                 @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  reports        ModerationReport[]
+}
+
+model ModerationReport {
+  id             String            @id @default(cuid())
+  reporterId     String
+  targetUserId   String
+  messageId      String?
+  roomId         String?
+  reason         String
+  status         ModerationStatus
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  reporter       User              @relation("ReportsFiled", fields: [reporterId], references: [id], onDelete: Cascade)
+  targetUser     User              @relation("ReportsAgainst", fields: [targetUserId], references: [id], onDelete: Cascade)
+  message        Message?          @relation(fields: [messageId], references: [id], onDelete: SetNull)
+}
+
+model BarakatMeal {
+  id           String        @id @default(cuid())
+  vendorId     String
+  batchId      String
+  title        String
+  expiresAt    DateTime
+  claimedById  String?
+  createdAt    DateTime      @default(now())
+  vendor       VendorProfile @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  batch        Batch         @relation(fields: [batchId], references: [id], onDelete: Cascade)
+}
+
+model GiftMeal {
+  id              String    @id @default(cuid())
+  orderId         String
+  senderUserId    String
+  recipientLabel  String
+  isAnonymous     Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  order           Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model CodStrike {
+  id         String    @id @default(cuid())
+  userId     String
+  orderId    String
+  reason     String
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order      Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}

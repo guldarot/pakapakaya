@@ -1,0 +1,27 @@
+name: pakapakaya_flutter
+description: Mobile-first Flutter rebuild foundation for PakaPakaya.
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  dio: ^5.7.0
+  flutter_riverpod: ^2.5.1
+  go_router: ^14.2.7
+  flutter_secure_storage: ^9.2.2
+  image_picker: ^1.1.2
+  record: ^5.1.2
+  pusher_channels_flutter: ^2.4.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true

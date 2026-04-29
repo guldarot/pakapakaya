@@ -1,0 +1,398 @@
+openapi: 3.1.0
+info:
+  title: PakaPakaya Mobile API
+  version: 0.1.0
+  description: Docs-first backend contract for the Flutter rebuild.
+servers:
+  - url: https://api.pakapakaya.example
+paths:
+  /v1/auth/otp/login:
+    post:
+      summary: Log in with phone OTP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OtpLoginRequest'
+      responses:
+        '200':
+          description: Session bootstrapped
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BootstrapResponse'
+  /v1/discovery/vendors:
+    get:
+      summary: List vendors within a fuzzed radius
+      parameters:
+        - name: radiusKm
+          in: query
+          required: true
+          schema:
+            type: integer
+            enum: [1, 2, 5]
+      responses:
+        '200':
+          description: Visible vendors
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/VendorProfile'
+  /v1/trust/requests:
+    post:
+      summary: Request trust access to a vendor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrustRequest'
+      responses:
+        '201':
+          description: Trust request created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrustRelationship'
+  /v1/vendors/{vendorId}:
+    get:
+      summary: Fetch storefront profile with visible menu and batches
+      parameters:
+        - name: vendorId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Vendor storefront detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VendorProfile'
+  /v1/orders:
+    post:
+      summary: Create an order for an approved buyer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderRequest'
+      responses:
+        '201':
+          description: Order created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+  /v1/orders/{orderId}:
+    get:
+      summary: Get one order visible to its buyer, vendor, or admin
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Order detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+  /v1/orders/{orderId}/payment-proof:
+    post:
+      summary: Attach manual payment proof to an order
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UploadPaymentProofRequest'
+      responses:
+        '200':
+          description: Order moved to verification
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+  /v1/chat/orders/{orderId}/messages:
+    get:
+      summary: Paginated chat history for the buyer and vendor only
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Chat history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Message'
+    post:
+      summary: Send a chat message into an order room
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendMessageRequest'
+      responses:
+        '201':
+          description: Message sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+components:
+  schemas:
+    OtpLoginRequest:
+      type: object
+      required: [phone, otpCode]
+      properties:
+        phone:
+          type: string
+        otpCode:
+          type: string
+    BootstrapResponse:
+      type: object
+      required: [currentUser, availablePlans]
+      properties:
+        currentUser:
+          $ref: '#/components/schemas/User'
+        availablePlans:
+          type: array
+          items:
+            $ref: '#/components/schemas/SubscriptionPlan'
+    TrustRequest:
+      type: object
+      required: [vendorId]
+      properties:
+        vendorId:
+          type: string
+    CreateOrderRequest:
+      type: object
+      required: [batchId, quantity, logisticsMode, isByob]
+      properties:
+        batchId:
+          type: string
+        quantity:
+          type: integer
+        logisticsMode:
+          type: string
+          enum: [pickup, delivery]
+        isByob:
+          type: boolean
+    UploadPaymentProofRequest:
+      type: object
+      required: [assetPath]
+      properties:
+        assetPath:
+          type: string
+    SendMessageRequest:
+      type: object
+      required: [roomId, type, content]
+      properties:
+        roomId:
+          type: string
+        type:
+          type: string
+          enum: [text, image, audio, offer, system]
+        content:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+    User:
+      type: object
+      required: [id, phone, name, role, status, trustScore, codStrikeCount]
+      properties:
+        id: { type: string }
+        phone: { type: string }
+        name: { type: string }
+        imageUrl: { type: string, nullable: true }
+        role:
+          type: string
+          enum: [user, vendor, admin]
+        status:
+          type: string
+          enum: [active, suspended]
+        trustScore: { type: integer }
+        codStrikeCount: { type: integer }
+    SubscriptionPlan:
+      type: object
+      required: [code, maxInventoryItems, maxMonthlyOrders, features]
+      properties:
+        code:
+          type: string
+          enum: [free, standard, pro]
+        maxInventoryItems:
+          type: integer
+        maxMonthlyOrders:
+          type: integer
+        features:
+          type: array
+          items:
+            type: string
+    PaymentMethod:
+      type: object
+      required: [id, vendorId, type, label, accountName, maskedAccount, instructions, isActive]
+      properties:
+        id: { type: string }
+        vendorId: { type: string }
+        type:
+          type: string
+          enum: [easypaisa, bankTransfer, jazzCash]
+        label: { type: string }
+        accountName: { type: string }
+        maskedAccount: { type: string }
+        instructions: { type: string }
+        isActive: { type: boolean }
+    InventoryItem:
+      type: object
+      required: [id, vendorId, name, description, basePrice, isActive, category]
+      properties:
+        id: { type: string }
+        vendorId: { type: string }
+        name: { type: string }
+        description: { type: string }
+        imageUrl: { type: string, nullable: true }
+        basePrice: { type: number }
+        isActive: { type: boolean }
+        category: { type: string }
+    Batch:
+      type: object
+      required: [id, itemId, availableFrom, availableUntil, cutoffTime, maxQuantity, remainingQuantity, status, acceptOrdersDuringPrep, item]
+      properties:
+        id: { type: string }
+        itemId: { type: string }
+        availableFrom: { type: string, format: date-time }
+        availableUntil: { type: string, format: date-time }
+        cutoffTime: { type: string, format: date-time }
+        maxQuantity: { type: integer }
+        remainingQuantity: { type: integer }
+        status:
+          type: string
+          enum: [draft, open, closed, completed]
+        acceptOrdersDuringPrep: { type: boolean }
+        item:
+          $ref: '#/components/schemas/InventoryItem'
+    VendorProfile:
+      type: object
+      required: [id, userId, storeName, bio, status, subscriptionTier, packagingCost, deliveryModes, monthlyOrderCount, billingCycleStart, verifiedBadge, paymentMethods, user, trustStatus, fuzzedDistanceKm, inventoryItems, batches]
+      properties:
+        id: { type: string }
+        userId: { type: string }
+        storeName: { type: string }
+        bio: { type: string }
+        status:
+          type: string
+          enum: [open, paused, closed]
+        subscriptionTier:
+          type: string
+          enum: [free, standard, pro]
+        packagingCost: { type: number }
+        deliveryModes:
+          type: array
+          items:
+            type: string
+            enum: [pickup, delivery]
+        monthlyOrderCount: { type: integer }
+        billingCycleStart: { type: string, format: date-time }
+        verifiedBadge: { type: boolean }
+        customStatus: { type: string, nullable: true }
+        paymentMethods:
+          type: array
+          items:
+            $ref: '#/components/schemas/PaymentMethod'
+        user:
+          $ref: '#/components/schemas/User'
+        trustStatus:
+          type: string
+          enum: [pending, approved, blocked]
+        fuzzedDistanceKm: { type: number }
+        inventoryItems:
+          type: array
+          items:
+            $ref: '#/components/schemas/InventoryItem'
+        batches:
+          type: array
+          items:
+            $ref: '#/components/schemas/Batch'
+    TrustRelationship:
+      type: object
+      required: [vendorId, userId, status, requestedAt]
+      properties:
+        vendorId: { type: string }
+        userId: { type: string }
+        status:
+          type: string
+          enum: [pending, approved, blocked]
+        requestedAt: { type: string, format: date-time }
+        reviewedAt: { type: string, format: date-time, nullable: true }
+        reviewReason: { type: string, nullable: true }
+    Order:
+      type: object
+      required: [id, batchId, buyerId, vendorId, status, logisticsMode, isByob, quantity, unitPriceSnapshot, packagingFeeSnapshot, totalAmount, paymentStatus, batch]
+      properties:
+        id: { type: string }
+        batchId: { type: string }
+        buyerId: { type: string }
+        vendorId: { type: string }
+        status:
+          type: string
+          enum: [pendingPayment, verification, confirmed, ready, completed, cancelled, noShow, barakat]
+        logisticsMode:
+          type: string
+          enum: [pickup, delivery]
+        isByob: { type: boolean }
+        quantity: { type: integer }
+        unitPriceSnapshot: { type: number }
+        packagingFeeSnapshot: { type: number }
+        totalAmount: { type: number }
+        paymentStatus:
+          type: string
+          enum: [pending, uploaded, confirmed, rejected]
+        paymentScreenshotUrl: { type: string, nullable: true }
+        batch:
+          $ref: '#/components/schemas/Batch'
+    Message:
+      type: object
+      required: [id, roomId, senderId, type, content, deliveryState, createdAt]
+      properties:
+        id: { type: string }
+        roomId: { type: string }
+        senderId: { type: string }
+        type:
+          type: string
+          enum: [text, image, audio, offer, system]
+        content: { type: string }
+        metadata:
+          type: object
+          additionalProperties: true
+        deliveryState:
+          type: string
+          enum: [sending, sent, delivered, failed]
+        createdAt: { type: string, format: date-time }
