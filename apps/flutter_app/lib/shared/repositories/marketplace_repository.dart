@@ -21,7 +21,18 @@ abstract class MarketplaceRepository {
 
   Future<List<Order>> getOrders();
 
+  Future<List<Order>> getVendorOrders();
+
   Future<Order> getOrder(String orderId);
+
+  Future<Order> updateVendorOrderStatus({
+    required String orderId,
+    required OrderStatus status,
+  });
+
+  Future<UploadPreparation> preparePaymentProofUpload(
+    PreparePaymentProofUploadRequestDto request,
+  );
 
   Future<Order> uploadPaymentProof(UploadPaymentProofRequestDto request);
 }

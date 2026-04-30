@@ -17,8 +17,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/',
     redirect: (context, state) {
+      if (session.isLoading) {
+        return state.matchedLocation == '/loading' ? null : '/loading';
+      }
+
       final isLoggedIn = session.isAuthenticated;
       final isLogin = state.matchedLocation == '/login';
+      final isLoading = state.matchedLocation == '/loading';
 
       if (!isLoggedIn && !isLogin) {
         return '/login';
@@ -28,9 +33,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return '/';
       }
 
+      if (isLoggedIn && isLoading) {
+        return '/';
+      }
+
+      if (!isLoggedIn && isLoading) {
+        return '/login';
+      }
+
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/loading',
+        builder: (context, state) => const Scaffold(
+          body: Center(child: CircularProgressIndicator()),
+        ),
+      ),
       GoRoute(
         path: '/',
         builder: (context, state) => const DiscoveryPage(),

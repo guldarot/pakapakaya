@@ -7,8 +7,15 @@ import { buildStubTrust } from '../../../shared/stub-data.js';
 
 export interface TrustRepository {
   createRequest(vendorId: string, userId: string): Promise<Record<string, unknown>>;
-  listPending(): Promise<Record<string, unknown>[]>;
-  review(vendorId: string, userId: string, status: string): Promise<Record<string, unknown>>;
+  listPendingForVendorUser(
+    vendorUserId: string,
+  ): Promise<{ trusts?: Record<string, unknown>[]; error?: 'forbidden' }>;
+  reviewByVendorUser(
+    vendorId: string,
+    userId: string,
+    status: string,
+    vendorUserId: string,
+  ): Promise<{ trust?: Record<string, unknown>; error?: 'forbidden' }>;
   getTrust(vendorId: string, userId: string): Promise<Record<string, unknown> | null>;
 }
 
@@ -23,11 +30,18 @@ class DevStoreTrustRepository implements TrustRepository {
     return trust;
   }
 
-  async listPending() {
-    return listTrusts().filter((item) => item.status === 'pending');
+  async listPendingForVendorUser(vendorUserId: string) {
+    return {
+      trusts: listTrusts().filter(
+        (item) => item.status === 'pending' && item.vendorId === buildStubTrust().vendorId && vendorUserId === 'user-vendor',
+      ),
+    };
   }
 
-  async review(vendorId: string, userId: string, status: string) {
+  async reviewByVendorUser(vendorId: string, userId: string, status: string, vendorUserId: string) {
+    if (vendorUserId !== 'user-vendor' || vendorId !== buildStubTrust().vendorId) {
+      return { error: 'forbidden' as const };
+    }
     const currentTrust = getTrust(vendorId, userId);
     const updatedTrust = buildStubTrust({
       ...(currentTrust ?? {}),
@@ -37,7 +51,7 @@ class DevStoreTrustRepository implements TrustRepository {
       reviewedAt: new Date().toISOString(),
     });
     saveTrust(updatedTrust);
-    return updatedTrust;
+    return { trust: updatedTrust };
   }
 
   async getTrust(vendorId: string, userId: string) {
@@ -69,17 +83,34 @@ class PrismaTrustRepository implements TrustRepository {
     return presentTrust(trust);
   }
 
-  async listPending() {
+  async listPendingForVendorUser(vendorUserId: string) {
     await ensureDemoData();
+    const vendor = await prisma.vendorProfile.findUnique({
+      where: { userId: vendorUserId },
+      select: { id: true },
+    });
+    if (!vendor) {
+      return { error: 'forbidden' as const };
+    }
     const trusts = await prisma.trustRelationship.findMany({
-      where: { status: 'PENDING' },
+      where: {
+        status: 'PENDING',
+        vendorId: vendor.id,
+      },
       orderBy: { requestedAt: 'asc' },
     });
-    return trusts.map((trust: (typeof trusts)[number]) => presentTrust(trust));
+    return { trusts: trusts.map((trust: (typeof trusts)[number]) => presentTrust(trust)) };
   }
 
-  async review(vendorId: string, userId: string, status: string) {
+  async reviewByVendorUser(vendorId: string, userId: string, status: string, vendorUserId: string) {
     await ensureDemoData();
+    const vendor = await prisma.vendorProfile.findUnique({
+      where: { userId: vendorUserId },
+      select: { id: true },
+    });
+    if (!vendor || vendor.id !== vendorId) {
+      return { error: 'forbidden' as const };
+    }
     const trust = await prisma.trustRelationship.upsert({
       where: {
         vendorId_userId: {
@@ -98,7 +129,7 @@ class PrismaTrustRepository implements TrustRepository {
         reviewedAt: new Date(),
       },
     });
-    return presentTrust(trust);
+    return { trust: presentTrust(trust) };
   }
 
   async getTrust(vendorId: string, userId: string) {

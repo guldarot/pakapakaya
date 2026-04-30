@@ -290,4 +290,15 @@ class JsonMappers {
           .toList(),
     );
   }
+
+  static UploadPreparation uploadPreparation(Map<String, dynamic> json) {
+    return UploadPreparation(
+      assetPath: json['assetPath'] as String? ?? '',
+      uploadUrl: json['uploadUrl'] as String? ?? '',
+      publicUrl: json['publicUrl'] as String? ?? '',
+      method: json['method'] as String? ?? 'PUT',
+      headers: ((json['headers'] as Map?) ?? const {})
+          .map((key, value) => MapEntry(key.toString(), value.toString())),
+    );
+  }
 }

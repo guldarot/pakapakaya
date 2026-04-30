@@ -6,10 +6,10 @@ import { prisma } from '../../../shared/prisma.js';
 import { nowIso } from '../../../shared/stub-data.js';
 
 export interface ChatRepository {
-  listForBuyer(orderId: string, buyerId: string): Promise<{ messages?: Record<string, unknown>[]; error?: 'not-found' | 'forbidden' }>;
-  sendForBuyer(input: {
+  listForParticipant(orderId: string, userId: string): Promise<{ messages?: Record<string, unknown>[]; error?: 'not-found' | 'forbidden' }>;
+  sendForParticipant(input: {
     orderId: string;
-    buyerId: string;
+    userId: string;
     type: 'text' | 'image' | 'audio' | 'offer' | 'system';
     content: string;
     metadata?: Record<string, unknown>;
@@ -17,28 +17,32 @@ export interface ChatRepository {
 }
 
 class DevStoreChatRepository implements ChatRepository {
-  async listForBuyer(orderId: string, buyerId: string) {
+  async listForParticipant(orderId: string, userId: string) {
     const order = getOrder(orderId);
     if (!order) return { error: 'not-found' as const };
-    if (order.buyerId !== buyerId) return { error: 'forbidden' as const };
+    if (order.buyerId !== userId && !(order.vendorId == 'vendor-1' && userId == 'user-vendor')) {
+      return { error: 'forbidden' as const };
+    }
     return { messages: getMessages(orderId) };
   }
 
-  async sendForBuyer(input: {
+  async sendForParticipant(input: {
     orderId: string;
-    buyerId: string;
+    userId: string;
     type: 'text' | 'image' | 'audio' | 'offer' | 'system';
     content: string;
     metadata?: Record<string, unknown>;
   }) {
     const order = getOrder(input.orderId);
     if (!order) return { error: 'not-found' as const };
-    if (order.buyerId !== input.buyerId) return { error: 'forbidden' as const };
+    if (order.buyerId !== input.userId && !(order.vendorId == 'vendor-1' && input.userId == 'user-vendor')) {
+      return { error: 'forbidden' as const };
+    }
 
     const message = appendMessage(input.orderId, {
       id: `message-${input.orderId}-${getMessages(input.orderId).length + 1}`,
       roomId: `room-${input.orderId}`,
-      senderId: input.buyerId,
+      senderId: input.userId,
       type: input.type,
       content: input.content,
       metadata: input.metadata ?? {},
@@ -51,16 +55,17 @@ class DevStoreChatRepository implements ChatRepository {
 }
 
 class PrismaChatRepository implements ChatRepository {
-  async listForBuyer(orderId: string, buyerId: string) {
+  async listForParticipant(orderId: string, userId: string) {
     await ensureDemoData();
     const order = await prisma.order.findUnique({
       where: { id: orderId },
       include: {
         chatRoom: true,
+        vendor: true,
       },
     });
     if (!order || !order.chatRoom) return { error: 'not-found' as const };
-    if (order.buyerId !== buyerId) return { error: 'forbidden' as const };
+    if (order.buyerId !== userId && order.vendor.userId !== userId) return { error: 'forbidden' as const };
 
     const messages = await prisma.message.findMany({
       where: {
@@ -71,9 +76,9 @@ class PrismaChatRepository implements ChatRepository {
     return { messages: messages.map((message: (typeof messages)[number]) => presentMessage(message)) };
   }
 
-  async sendForBuyer(input: {
+  async sendForParticipant(input: {
     orderId: string;
-    buyerId: string;
+    userId: string;
     type: 'text' | 'image' | 'audio' | 'offer' | 'system';
     content: string;
     metadata?: Record<string, unknown>;
@@ -83,15 +88,18 @@ class PrismaChatRepository implements ChatRepository {
       where: { id: input.orderId },
       include: {
         chatRoom: true,
+        vendor: true,
       },
     });
     if (!order || !order.chatRoom) return { error: 'not-found' as const };
-    if (order.buyerId !== input.buyerId) return { error: 'forbidden' as const };
+    if (order.buyerId !== input.userId && order.vendor.userId !== input.userId) {
+      return { error: 'forbidden' as const };
+    }
 
     const message = await prisma.message.create({
       data: {
         roomId: order.chatRoom.id,
-        senderId: input.buyerId,
+        senderId: input.userId,
         type: input.type.toUpperCase() as 'TEXT' | 'IMAGE' | 'AUDIO' | 'OFFER' | 'SYSTEM',
         content: input.content,
         metadata: (input.metadata ?? {}) as any,

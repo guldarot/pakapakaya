@@ -9,3 +9,11 @@ Thumbs.db
 
 # Legacy reference app, not part of the active rebuild monorepo
 /bmad/
+
+# Local Terraform inputs and overrides
+*.tfvars
+*.tfvars.json
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json

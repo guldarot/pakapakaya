@@ -13,11 +13,22 @@ class MockAuthRepository implements AuthRepository {
   AppUser? get currentUserOrNull => _backend.currentUserOrNull;
 
   @override
-  Future<AppUser> loginDemo() {
+  Future<AppUser?> restoreSession() => _backend.restoreSession();
+
+  @override
+  Future<AppUser> loginDemo(UserRole role) {
+    final phone = switch (role) {
+      UserRole.user => '+923001234567',
+      UserRole.vendor => '+923009876543',
+      UserRole.admin => '+923111110000',
+    };
     return _backend.loginWithOtp(
-      const OtpLoginRequestDto(phone: '+923001234567', otpCode: '123456'),
+      OtpLoginRequestDto(phone: phone, otpCode: '123456'),
     );
   }
+
+  @override
+  Future<void> logout() => _backend.logout();
 }
 
 class MockMarketplaceRepository implements MarketplaceRepository {
@@ -39,10 +50,32 @@ class MockMarketplaceRepository implements MarketplaceRepository {
   Future<List<Order>> getOrders() => _backend.getOrders();
 
   @override
+  Future<List<Order>> getVendorOrders() => _backend.getVendorOrders();
+
+  @override
+  Future<UploadPreparation> preparePaymentProofUpload(
+    PreparePaymentProofUploadRequestDto request,
+  ) {
+    return _backend.preparePaymentProofUpload(
+      orderId: request.orderId,
+      fileName: request.fileName,
+      contentType: request.contentType,
+    );
+  }
+
+  @override
   Future<List<SubscriptionPlan>> getPlans() => _backend.getPlans();
 
   @override
   Future<VendorProfile> getVendor(String vendorId) => _backend.getVendor(vendorId);
+
+  @override
+  Future<Order> updateVendorOrderStatus({
+    required String orderId,
+    required OrderStatus status,
+  }) {
+    return _backend.updateVendorOrderStatus(orderId: orderId, status: status);
+  }
 
   @override
   Future<List<TrustRelationship>> getVendorTrustRequests() =>

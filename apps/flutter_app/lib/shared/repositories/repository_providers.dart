@@ -17,7 +17,7 @@ final secureStorageServiceProvider = Provider<SecureStorageService>((ref) {
   return SecureStorageService();
 });
 
-final sessionStoreProvider = Provider<SessionStore>((ref) {
+final sessionStoreProvider = ChangeNotifierProvider<SessionStore>((ref) {
   return SessionStore(ref.watch(secureStorageServiceProvider));
 });
 
@@ -26,6 +26,7 @@ final apiClientProvider = Provider<ApiClient>((ref) {
   return ApiClient(
     baseUrl: AppConfig.apiBaseUrl,
     tokenReader: () => sessionStore.token,
+    onUnauthorized: () => sessionStore.expireSession(),
   );
 });
 

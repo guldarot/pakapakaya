@@ -19,17 +19,25 @@ class DiscoveryPage extends ConsumerWidget {
     return AppScaffold(
       title: 'Discovery',
       actions: [
-        IconButton(
-          tooltip: 'Vendor center',
-          onPressed: () => context.push('/vendor-center'),
-          icon: const Icon(Icons.storefront_outlined),
-        ),
+        if (auth.user?.role == UserRole.vendor || auth.user?.role == UserRole.admin)
+          IconButton(
+            tooltip: 'Vendor center',
+            onPressed: () => context.push('/vendor-center'),
+            icon: const Icon(Icons.storefront_outlined),
+          ),
         if (auth.user?.role == UserRole.admin)
           IconButton(
             tooltip: 'Admin',
             onPressed: () => context.push('/admin'),
             icon: const Icon(Icons.admin_panel_settings_outlined),
           ),
+        IconButton(
+          tooltip: 'Logout',
+          onPressed: auth.isLoading
+              ? null
+              : () => ref.read(authControllerProvider.notifier).logout(),
+          icon: const Icon(Icons.logout),
+        ),
       ],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -131,7 +139,7 @@ class _TrustBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(

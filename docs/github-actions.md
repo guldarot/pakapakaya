@@ -20,6 +20,8 @@ This monorepo includes baseline GitHub Actions workflows for CI and backend depl
   - manual deployment workflow for the backend
   - builds and pushes a container image to Artifact Registry
   - deploys the backend container to Cloud Run
+  - injects build metadata through `APP_VERSION` and `APP_REVISION`
+  - verifies the deployed service with `/ready`
 
 ## Recommended GitHub Secrets
 
@@ -62,5 +64,13 @@ The deployment workflow is intentionally kept at the container boundary:
 - Cloud Run is treated as a runtime target
 - PostgreSQL stays externalized through `DATABASE_URL`
 - storage remains behind the backend storage adapter
+
+The backend now exposes:
+
+- `/health` for lightweight liveness
+- `/ready` for dependency-aware readiness
+- `/version` for operator-facing build metadata
+
+The Cloud Run workflow uses `/ready` as the post-deploy sanity check.
 
 If you later move away from Cloud Run, the CI workflows can stay mostly unchanged while only the deploy workflow changes.

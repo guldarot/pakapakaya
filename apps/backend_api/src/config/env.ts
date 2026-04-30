@@ -2,10 +2,17 @@ import 'dotenv/config';
 import { z } from 'zod';
 
 const envSchema = z.object({
+  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.string().default('4000'),
+  APP_VERSION: z.string().default('0.1.0'),
+  APP_REVISION: z.string().default('dev'),
   DATABASE_URL: z.string().default('postgresql://postgres:postgres@localhost:5432/pakapakaya'),
   CLIENT_ORIGIN: z.string().default('http://localhost:3000'),
-  PERSISTENCE_MODE: z.enum(['dev-store', 'prisma']).default('dev-store'),
+  PERSISTENCE_MODE: z.enum(['dev-store', 'prisma']).default('prisma'),
+  LOG_REQUESTS: z
+    .enum(['true', 'false'])
+    .default(process.env.NODE_ENV === 'production' ? 'true' : 'false')
+    .transform((value) => value === 'true'),
   STORAGE_DRIVER: z.enum(['local', 'gcs', 's3']).default('local'),
   STORAGE_LOCAL_DIR: z.string().default('./data/storage'),
   STORAGE_PUBLIC_BASE_URL: z.string().default('http://localhost:4000'),

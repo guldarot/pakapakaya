@@ -1,6 +1,7 @@
 class ApiEndpoints {
   static const authLogin = '/v1/auth/otp/login';
   static const authRefresh = '/v1/auth/session/refresh';
+  static const authLogout = '/v1/auth/logout';
   static const bootstrap = '/v1/profile/bootstrap';
   static const discovery = '/v1/discovery/vendors';
   static const vendor = '/v1/vendors';

@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 
 import { env } from '../config/env.js';
 import { getUserIdForSession } from './dev-store.js';
+import { sendError } from './http.js';
 import { prisma } from './prisma.js';
 
 function readBearerToken(req: Request): string | null {
@@ -33,13 +34,13 @@ export async function getSessionUserId(token: string): Promise<string | null> {
 export async function requireSessionUserId(req: Request, res: Response): Promise<string | null> {
   const token = readBearerToken(req);
   if (!token) {
-    res.status(401).json({ error: 'Missing bearer token' });
+    sendError(res, 401, 'Missing bearer token');
     return null;
   }
 
   const userId = await getSessionUserId(token);
   if (!userId) {
-    res.status(401).json({ error: 'Invalid or expired session' });
+    sendError(res, 401, 'Invalid or expired session');
     return null;
   }
 

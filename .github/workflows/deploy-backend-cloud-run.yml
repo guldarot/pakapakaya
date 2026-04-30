@@ -48,6 +48,7 @@ jobs:
         run: docker push $GAR_LOCATION-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/$REPOSITORY/$SERVICE_NAME:${{ github.event.inputs.image_tag }}
 
       - name: Deploy to Cloud Run
+        id: deploy
         run: >
           gcloud run deploy $SERVICE_NAME
           --project=${{ secrets.GCP_PROJECT_ID }}
@@ -55,4 +56,14 @@ jobs:
           --platform=managed
           --image=$GAR_LOCATION-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/$REPOSITORY/$SERVICE_NAME:${{ github.event.inputs.image_tag }}
           --allow-unauthenticated
-          --set-env-vars=PERSISTENCE_MODE=prisma,STORAGE_DRIVER=gcs
+          --set-env-vars=PERSISTENCE_MODE=prisma,STORAGE_DRIVER=gcs,APP_VERSION=${{ github.event.inputs.image_tag }},APP_REVISION=${{ github.sha }}
+          --format='value(status.url)' > cloud-run-url.txt
+
+      - name: Export Cloud Run URL
+        run: echo "CLOUD_RUN_URL=$(Get-Content cloud-run-url.txt)" >> $env:GITHUB_ENV
+        shell: pwsh
+
+      - name: Verify readiness
+        run: |
+          echo "Checking $CLOUD_RUN_URL/ready"
+          curl --fail --show-error --silent "$CLOUD_RUN_URL/ready"

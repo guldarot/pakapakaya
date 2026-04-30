@@ -351,3 +351,19 @@ class CodStrike {
   final String reason;
   final DateTime createdAt;
 }
+
+class UploadPreparation {
+  const UploadPreparation({
+    required this.assetPath,
+    required this.uploadUrl,
+    required this.publicUrl,
+    required this.method,
+    required this.headers,
+  });
+
+  final String assetPath;
+  final String uploadUrl;
+  final String publicUrl;
+  final String method;
+  final Map<String, String> headers;
+}

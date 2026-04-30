@@ -83,6 +83,24 @@ class UploadPaymentProofRequestDto {
       };
 }
 
+class PreparePaymentProofUploadRequestDto {
+  const PreparePaymentProofUploadRequestDto({
+    required this.orderId,
+    required this.fileName,
+    required this.contentType,
+  });
+
+  final String orderId;
+  final String fileName;
+  final String contentType;
+
+  Map<String, dynamic> toJson() => {
+        'orderId': orderId,
+        'fileName': fileName,
+        'contentType': contentType,
+      };
+}
+
 class BootstrapResponseDto {
   const BootstrapResponseDto({
     required this.token,

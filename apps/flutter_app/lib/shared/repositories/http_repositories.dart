@@ -20,11 +20,42 @@ class HttpAuthRepository implements AuthRepository {
   AppUser? get currentUserOrNull => _currentUser;
 
   @override
-  Future<AppUser> loginDemo() async {
+  Future<AppUser?> restoreSession() async {
+    final token = await _sessionStore.restoreToken();
+    if (token == null || token.isEmpty) {
+      _currentUser = null;
+      return null;
+    }
+
+    try {
+      final response = await _client.postWithoutBody(ApiEndpoints.authRefresh);
+      final bootstrap = JsonMappers.bootstrapResponse(
+        (response.data as Map).cast<String, dynamic>(),
+      );
+      _currentUser = bootstrap.currentUser;
+      await _sessionStore.setSession(
+        token: bootstrap.token,
+        user: bootstrap.currentUser,
+      );
+      return bootstrap.currentUser;
+    } catch (_) {
+      await _sessionStore.clear();
+      _currentUser = null;
+      return null;
+    }
+  }
+
+  @override
+  Future<AppUser> loginDemo(UserRole role) async {
+    final phone = switch (role) {
+      UserRole.user => '+923001234567',
+      UserRole.vendor => '+923009876543',
+      UserRole.admin => '+923111110000',
+    };
     final response = await _client.post(
       ApiEndpoints.authLogin,
-      data: const OtpLoginRequestDto(
-        phone: '+923001234567',
+      data: OtpLoginRequestDto(
+        phone: phone,
         otpCode: '123456',
       ).toJson(),
     );
@@ -37,6 +68,16 @@ class HttpAuthRepository implements AuthRepository {
       user: bootstrap.currentUser,
     );
     return bootstrap.currentUser;
+  }
+
+  @override
+  Future<void> logout() async {
+    try {
+      await _client.postWithoutBody(ApiEndpoints.authLogout);
+    } finally {
+      _currentUser = null;
+      await _sessionStore.clear();
+    }
   }
 }
 
@@ -77,6 +118,25 @@ class HttpMarketplaceRepository implements MarketplaceRepository {
   }
 
   @override
+  Future<List<Order>> getVendorOrders() async {
+    final response = await _client.get('${ApiEndpoints.orders}/vendor');
+    return ((response.data as List?) ?? const [])
+        .map((item) => JsonMappers.order((item as Map).cast<String, dynamic>()))
+        .toList();
+  }
+
+  @override
+  Future<UploadPreparation> preparePaymentProofUpload(
+    PreparePaymentProofUploadRequestDto request,
+  ) async {
+    final response = await _client.post(
+      '${ApiEndpoints.orders}/${request.orderId}/payment-proof/prepare',
+      data: request.toJson(),
+    );
+    return JsonMappers.uploadPreparation((response.data as Map).cast<String, dynamic>());
+  }
+
+  @override
   Future<List<SubscriptionPlan>> getPlans() async {
     final response = await _client.get('${ApiEndpoints.admin}/plans');
     return ((response.data as List?) ?? const [])
@@ -88,6 +148,18 @@ class HttpMarketplaceRepository implements MarketplaceRepository {
   Future<VendorProfile> getVendor(String vendorId) async {
     final response = await _client.get('${ApiEndpoints.vendor}/$vendorId');
     return JsonMappers.vendorProfile((response.data as Map).cast<String, dynamic>());
+  }
+
+  @override
+  Future<Order> updateVendorOrderStatus({
+    required String orderId,
+    required OrderStatus status,
+  }) async {
+    final response = await _client.patch(
+      '${ApiEndpoints.orders}/$orderId/vendor-status',
+      data: {'status': status.name},
+    );
+    return JsonMappers.order((response.data as Map).cast<String, dynamic>());
   }
 
   @override

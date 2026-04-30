@@ -23,8 +23,18 @@ export type CreateOrderInput = {
 
 export interface OrdersRepository {
   listForBuyer(userId: string): Promise<Record<string, unknown>[]>;
+  listForVendorUser(vendorUserId: string): Promise<{ orders?: Record<string, unknown>[]; error?: 'forbidden' }>;
   createForBuyer(input: CreateOrderInput): Promise<Record<string, unknown>>;
   getForBuyer(orderId: string, buyerId: string): Promise<{ order?: Record<string, unknown>; error?: 'not-found' | 'forbidden' }>;
+  getForParticipant(
+    orderId: string,
+    userId: string,
+  ): Promise<{ order?: Record<string, unknown>; error?: 'not-found' | 'forbidden' }>;
+  updateStatusForVendorUser(input: {
+    orderId: string;
+    vendorUserId: string;
+    nextStatus: 'confirmed' | 'ready' | 'completed';
+  }): Promise<{ order?: Record<string, unknown>; error?: 'not-found' | 'forbidden' | 'invalid-transition' }>;
   uploadPaymentProofForBuyer(
     orderId: string,
     buyerId: string,
@@ -37,6 +47,18 @@ class DevStoreOrdersRepository implements OrdersRepository {
     return listOrders()
       .filter((order) => order.buyerId === userId)
       .map((order) => buildStubOrder(order));
+  }
+
+  async listForVendorUser(vendorUserId: string) {
+    if (vendorUserId !== 'user-vendor') {
+      return { error: 'forbidden' as const };
+    }
+
+    return {
+      orders: listOrders()
+          .filter((order) => order.vendorId === 'vendor-1')
+          .map((order) => buildStubOrder(order)),
+    };
   }
 
   async createForBuyer(input: CreateOrderInput) {
@@ -79,6 +101,19 @@ class DevStoreOrdersRepository implements OrdersRepository {
     return { order: buildStubOrder(order) };
   }
 
+  async getForParticipant(orderId: string, userId: string) {
+    const order = getOrder(orderId);
+    if (!order) return { error: 'not-found' as const };
+    if (order.buyerId != userId && order.vendorId != 'vendor-1') return { error: 'forbidden' as const };
+    if (order.vendorId == 'vendor-1' && userId == 'user-vendor') {
+      return { order: buildStubOrder(order) };
+    }
+    if (order.buyerId === userId) {
+      return { order: buildStubOrder(order) };
+    }
+    return { error: 'forbidden' as const };
+  }
+
   async uploadPaymentProofForBuyer(orderId: string, buyerId: string, assetPath: string) {
     const order = getOrder(orderId);
     if (!order) return { error: 'not-found' as const };
@@ -105,6 +140,37 @@ class DevStoreOrdersRepository implements OrdersRepository {
 
     return { order: buildStubOrder(updatedState) };
   }
+
+  async updateStatusForVendorUser(input: {
+    orderId: string;
+    vendorUserId: string;
+    nextStatus: 'confirmed' | 'ready' | 'completed';
+  }) {
+    const order = getOrder(input.orderId);
+    if (!order) return { error: 'not-found' as const };
+    if (input.vendorUserId !== 'user-vendor') return { error: 'forbidden' as const };
+
+    const allowedTransitions: Record<string, string> = {
+      verification: 'confirmed',
+      confirmed: 'ready',
+      ready: 'completed',
+    };
+    const currentStatus = typeof order.status === 'string' ? order.status : '';
+    if (allowedTransitions[currentStatus] !== input.nextStatus) {
+      return { error: 'invalid-transition' as const };
+    }
+    const currentPaymentStatus =
+      typeof order.paymentStatus === 'string' ? order.paymentStatus : 'pending';
+
+    const updatedState = {
+      ...order,
+      status: input.nextStatus,
+      paymentStatus: input.nextStatus === 'confirmed' ? 'confirmed' : currentPaymentStatus,
+    };
+    saveOrder(input.orderId, updatedState);
+
+    return { order: buildStubOrder(updatedState) };
+  }
 }
 
 class PrismaOrdersRepository implements OrdersRepository {
@@ -122,6 +188,30 @@ class PrismaOrdersRepository implements OrdersRepository {
       },
     });
     return orders.map((order: (typeof orders)[number]) => presentOrder(order));
+  }
+
+  async listForVendorUser(vendorUserId: string) {
+    await ensureDemoData();
+    const vendor = await prisma.vendorProfile.findUnique({
+      where: { userId: vendorUserId },
+      select: { id: true },
+    });
+    if (!vendor) {
+      return { error: 'forbidden' as const };
+    }
+
+    const orders = await prisma.order.findMany({
+      where: { vendorId: vendor.id },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        batch: {
+          include: {
+            item: true,
+          },
+        },
+      },
+    });
+    return { orders: orders.map((order: (typeof orders)[number]) => presentOrder(order)) };
   }
 
   async createForBuyer(input: CreateOrderInput) {
@@ -234,6 +324,24 @@ class PrismaOrdersRepository implements OrdersRepository {
     return { order: presentOrder(order) };
   }
 
+  async getForParticipant(orderId: string, userId: string) {
+    await ensureDemoData();
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        vendor: true,
+        batch: {
+          include: {
+            item: true,
+          },
+        },
+      },
+    });
+    if (!order) return { error: 'not-found' as const };
+    if (order.buyerId !== userId && order.vendor.userId !== userId) return { error: 'forbidden' as const };
+    return { order: presentOrder(order) };
+  }
+
   async uploadPaymentProofForBuyer(orderId: string, buyerId: string, assetPath: string) {
     await ensureDemoData();
     const order = await prisma.order.findUnique({
@@ -283,6 +391,54 @@ class PrismaOrdersRepository implements OrdersRepository {
       }
 
       return savedOrder;
+    });
+
+    return { order: presentOrder(updated) };
+  }
+
+  async updateStatusForVendorUser(input: {
+    orderId: string;
+    vendorUserId: string;
+    nextStatus: 'confirmed' | 'ready' | 'completed';
+  }) {
+    await ensureDemoData();
+    const order = await prisma.order.findUnique({
+      where: { id: input.orderId },
+      include: {
+        vendor: true,
+        batch: {
+          include: {
+            item: true,
+          },
+        },
+      },
+    });
+    if (!order) return { error: 'not-found' as const };
+    if (order.vendor.userId !== input.vendorUserId) return { error: 'forbidden' as const };
+
+    const allowedTransitions: Record<string, 'CONFIRMED' | 'READY' | 'COMPLETED'> = {
+      VERIFICATION: 'CONFIRMED',
+      CONFIRMED: 'READY',
+      READY: 'COMPLETED',
+    };
+    const targetStatus = input.nextStatus.toUpperCase() as 'CONFIRMED' | 'READY' | 'COMPLETED';
+    if (allowedTransitions[order.status] !== targetStatus) {
+      return { error: 'invalid-transition' as const };
+    }
+
+    const updated = await prisma.order.update({
+      where: { id: input.orderId },
+      data: {
+        status: targetStatus,
+        paymentStatus: targetStatus === 'CONFIRMED' ? 'CONFIRMED' : order.paymentStatus,
+      },
+      include: {
+        batch: {
+          include: {
+            item: true,
+          },
+        },
+      },
     });
 
     return { order: presentOrder(updated) };

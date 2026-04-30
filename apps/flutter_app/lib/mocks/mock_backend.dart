@@ -27,8 +27,22 @@ class MockBackend {
 
   Future<AppUser> loginWithOtp(OtpLoginRequestDto request) async {
     await Future<void>.delayed(const Duration(milliseconds: 400));
-    _currentUser = MockData.buyerUser;
+    _currentUser = switch (request.phone) {
+      '+923009876543' => MockData.vendorUser,
+      '+923111110000' => MockData.adminUser,
+      _ => MockData.buyerUser,
+    };
     return currentUser;
+  }
+
+  Future<AppUser?> restoreSession() async {
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    return _currentUser;
+  }
+
+  Future<void> logout() async {
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    _currentUser = null;
   }
 
   Future<List<SubscriptionPlan>> getPlans() async {
@@ -204,8 +218,32 @@ class MockBackend {
 
   Future<List<Order>> getOrders() async => List.of(_orders);
 
+  Future<List<Order>> getVendorOrders() async {
+    if (currentUser.role != UserRole.vendor) {
+      return [];
+    }
+    return _orders.where((order) => order.vendorId == 'vendor-1').toList();
+  }
+
   Future<Order> getOrder(String orderId) async {
     return _orders.firstWhere((order) => order.id == orderId);
+  }
+
+  Future<UploadPreparation> preparePaymentProofUpload({
+    required String orderId,
+    required String fileName,
+    required String contentType,
+  }) async {
+    await Future<void>.delayed(const Duration(milliseconds: 150));
+    final safeName = fileName.replaceAll(' ', '-');
+    final assetPath = 'mock://orders/$orderId/payment-proof/$safeName';
+    return UploadPreparation(
+      assetPath: assetPath,
+      uploadUrl: assetPath,
+      publicUrl: assetPath,
+      method: 'PUT',
+      headers: {'content-type': contentType},
+    );
   }
 
   Future<String> getRoomIdForOrder(String orderId) async {
@@ -236,6 +274,36 @@ class MockBackend {
       totalAmount: current.totalAmount,
       paymentStatus: PaymentStatus.uploaded,
       paymentScreenshotUrl: assetPath,
+      createdAt: current.createdAt,
+      updatedAt: DateTime.now(),
+      batch: current.batch,
+      deliveryAddressSnapshot: current.deliveryAddressSnapshot,
+    );
+    _orders[index] = updated;
+    return updated;
+  }
+
+  Future<Order> updateVendorOrderStatus({
+    required String orderId,
+    required OrderStatus status,
+  }) async {
+    final index = _orders.indexWhere((order) => order.id == orderId);
+    final current = _orders[index];
+    final updated = Order(
+      id: current.id,
+      batchId: current.batchId,
+      buyerId: current.buyerId,
+      vendorId: current.vendorId,
+      status: status,
+      logisticsMode: current.logisticsMode,
+      isByob: current.isByob,
+      quantity: current.quantity,
+      unitPriceSnapshot: current.unitPriceSnapshot,
+      packagingFeeSnapshot: current.packagingFeeSnapshot,
+      totalAmount: current.totalAmount,
+      paymentStatus:
+          status == OrderStatus.confirmed ? PaymentStatus.confirmed : current.paymentStatus,
+      paymentScreenshotUrl: current.paymentScreenshotUrl,
       createdAt: current.createdAt,
       updatedAt: DateTime.now(),
       batch: current.batch,

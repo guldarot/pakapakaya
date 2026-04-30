@@ -8,9 +8,18 @@ export type StorageAsset = {
   publicUrl: string;
 };
 
+export type PreparedUpload = {
+  assetPath: string;
+  uploadUrl: string;
+  publicUrl: string;
+  method: 'PUT';
+  headers: Record<string, string>;
+};
+
 export interface StorageService {
   getPublicUrl(key: string): string;
   saveTextAsset(key: string, contents: string): StorageAsset;
+  prepareTextUpload(key: string, contents: string, contentType: string): PreparedUpload;
 }
 
 class LocalStorageService implements StorageService {
@@ -28,6 +37,19 @@ class LocalStorageService implements StorageService {
       publicUrl: this.getPublicUrl(key),
     };
   }
+
+  prepareTextUpload(key: string, contents: string, contentType: string) {
+    const asset = this.saveTextAsset(key, contents);
+    return {
+      assetPath: asset.key,
+      uploadUrl: asset.publicUrl,
+      publicUrl: asset.publicUrl,
+      method: 'PUT' as const,
+      headers: {
+        'content-type': contentType,
+      },
+    };
+  }
 }
 
 class GcsStorageService implements StorageService {
@@ -42,6 +64,18 @@ class GcsStorageService implements StorageService {
       publicUrl: this.getPublicUrl(key),
     };
   }
+
+  prepareTextUpload(key: string, _contents: string, contentType: string) {
+    return {
+      assetPath: key,
+      uploadUrl: this.getPublicUrl(key),
+      publicUrl: this.getPublicUrl(key),
+      method: 'PUT' as const,
+      headers: {
+        'content-type': contentType,
+      },
+    };
+  }
 }
 
 class S3StorageService implements StorageService {
@@ -54,6 +88,18 @@ class S3StorageService implements StorageService {
     return {
       key,
       publicUrl: this.getPublicUrl(key),
+    };
+  }
+
+  prepareTextUpload(key: string, _contents: string, contentType: string) {
+    return {
+      assetPath: key,
+      uploadUrl: this.getPublicUrl(key),
+      publicUrl: this.getPublicUrl(key),
+      method: 'PUT' as const,
+      headers: {
+        'content-type': contentType,
+      },
     };
   }
 }

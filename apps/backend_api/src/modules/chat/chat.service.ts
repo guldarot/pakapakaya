@@ -1,15 +1,15 @@
 import { getChatRepository } from './repositories/chat.repository.js';
 
-export async function listMessagesForBuyer(orderId: string, buyerId: string) {
-  return getChatRepository().listForBuyer(orderId, buyerId);
+export async function listMessagesForParticipant(orderId: string, userId: string) {
+  return getChatRepository().listForParticipant(orderId, userId);
 }
 
-export async function sendMessageForBuyer(input: {
+export async function sendMessageForParticipant(input: {
   orderId: string;
-  buyerId: string;
+  userId: string;
   type: 'text' | 'image' | 'audio' | 'offer' | 'system';
   content: string;
   metadata?: Record<string, unknown>;
 }) {
-  return getChatRepository().sendForBuyer(input);
+  return getChatRepository().sendForParticipant(input);
 }

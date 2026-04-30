@@ -169,6 +169,27 @@ export async function ensureDemoData() {
   });
 }
 
+export async function resetAndSeedDemoData() {
+  await prisma.message.deleteMany();
+  await prisma.chatRoom.deleteMany();
+  await prisma.order.deleteMany();
+  await prisma.trustRelationship.deleteMany();
+  await prisma.batch.deleteMany();
+  await prisma.inventoryItem.deleteMany();
+  await prisma.paymentMethod.deleteMany();
+  await prisma.vendorProfile.deleteMany();
+  await prisma.devSession.deleteMany();
+  await prisma.user.deleteMany({
+    where: {
+      id: {
+        in: [demoIds.buyerUser, demoIds.vendorUser, demoIds.adminUser],
+      },
+    },
+  });
+
+  await ensureDemoData();
+}
+
 export function mapOrderStatus(orderStatus: string) {
   return orderStatus
     .toLowerCase()

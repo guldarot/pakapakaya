@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 
 import { requireSessionUserId } from '../../shared/auth.js';
-import { listMessagesForBuyer, sendMessageForBuyer } from './chat.service.js';
+import { listMessagesForParticipant, sendMessageForParticipant } from './chat.service.js';
 import { readBody, readParams } from '../../shared/validation.js';
 
 export const chatRouter = Router();
@@ -20,7 +20,7 @@ chatRouter.get('/orders/:orderId/messages', async (req, res) => {
   );
   if (!params) return;
 
-  const result = await listMessagesForBuyer(params.orderId, userId);
+  const result = await listMessagesForParticipant(params.orderId, userId);
   if ('error' in result && result.error === 'not-found') {
     res.status(404).json({ error: 'Order not found' });
     return;
@@ -57,9 +57,9 @@ chatRouter.post('/orders/:orderId/messages', async (req, res) => {
   );
   if (!body) return;
 
-  const result = await sendMessageForBuyer({
+  const result = await sendMessageForParticipant({
     orderId: params.orderId,
-    buyerId: userId,
+    userId: userId,
     type: body.type,
     content: body.content,
     metadata: body.metadata,

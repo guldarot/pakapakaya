@@ -1,10 +1,21 @@
 import 'package:dio/dio.dart';
 
+class ApiClientException implements Exception {
+  ApiClientException(this.message, {this.statusCode});
+
+  final String message;
+  final int? statusCode;
+
+  @override
+  String toString() => message;
+}
+
 class ApiClient {
   ApiClient({
     Dio? dio,
     this.baseUrl = 'https://api.pakapakaya.example',
     String? Function()? tokenReader,
+    Future<void> Function()? onUnauthorized,
   }) : _dio = dio ??
             Dio(
               BaseOptions(
@@ -22,6 +33,12 @@ class ApiClient {
           }
           handler.next(options);
         },
+        onError: (error, handler) async {
+          if (error.response?.statusCode == 401 && onUnauthorized != null) {
+            await onUnauthorized();
+          }
+          handler.next(error);
+        },
       ),
     );
   }
@@ -33,7 +50,7 @@ class ApiClient {
     String path, {
     Map<String, dynamic>? queryParameters,
   }) {
-    return _dio.get('$baseUrl$path', queryParameters: queryParameters);
+    return _wrap(() => _dio.get('$baseUrl$path', queryParameters: queryParameters));
   }
 
   Future<Response<dynamic>> post(
@@ -41,14 +58,35 @@ class ApiClient {
     Object? data,
     Map<String, dynamic>? queryParameters,
   }) {
-    return _dio.post(
+    return _wrap(() => _dio.post(
       '$baseUrl$path',
       data: data,
       queryParameters: queryParameters,
-    );
+    ));
   }
 
   Future<Response<dynamic>> patch(String path, {Object? data}) {
-    return _dio.patch('$baseUrl$path', data: data);
+    return _wrap(() => _dio.patch('$baseUrl$path', data: data));
+  }
+
+  Future<Response<dynamic>> postWithoutBody(String path) {
+    return _wrap(() => _dio.post('$baseUrl$path'));
+  }
+
+  Future<Response<dynamic>> _wrap(Future<Response<dynamic>> Function() request) async {
+    try {
+      return await request();
+    } on DioException catch (error) {
+      final statusCode = error.response?.statusCode;
+      final data = error.response?.data;
+      final message = switch (data) {
+        {'error': final String value} => value,
+        _ when statusCode == 401 => 'Your session expired. Please sign in again.',
+        _ when statusCode == 403 => 'You do not have access to do that.',
+        _ when statusCode != null => 'Request failed with status $statusCode.',
+        _ => 'Could not reach the server. Please try again.',
+      };
+      throw ApiClientException(message, statusCode: statusCode);
+    }
   }
 }

@@ -31,7 +31,13 @@ trustRouter.get('/requests', async (req, res) => {
   const userId = await requireSessionUserId(req, res);
   if (!userId) return;
 
-  res.json(await listPendingTrustRequests());
+  const result = await listPendingTrustRequests(userId);
+  if ('error' in result && result.error === 'forbidden') {
+    res.status(403).json({ error: 'Only vendors can view trust requests' });
+    return;
+  }
+
+  res.json(result.trusts);
 });
 
 trustRouter.patch('/requests/:vendorId/:userId', async (req, res) => {
@@ -57,5 +63,11 @@ trustRouter.patch('/requests/:vendorId/:userId', async (req, res) => {
   );
   if (!body) return;
 
-  res.json(await reviewTrustRequest(params.vendorId, params.userId, body.status));
+  const result = await reviewTrustRequest(params.vendorId, params.userId, body.status, sessionUserId);
+  if ('error' in result && result.error === 'forbidden') {
+    res.status(403).json({ error: 'Only the vendor who owns this storefront can review requests' });
+    return;
+  }
+
+  res.json(result.trust);
 });

@@ -51,8 +51,30 @@ The application itself should only know:
 
 - `DATABASE_URL`
 - `PERSISTENCE_MODE`
+- `APP_VERSION`
+- `APP_REVISION`
 - storage env vars
 - client origin
+
+## Runtime endpoints
+
+The container exposes three useful operational endpoints:
+
+- `/health`
+  - lightweight liveness probe
+  - returns service name, version, revision, timestamp, and request id
+- `/ready`
+  - dependency-aware readiness probe
+  - checks the database when `PERSISTENCE_MODE=prisma`
+- `/version`
+  - lightweight build metadata endpoint
+  - useful for support/debugging and deploy verification
+
+Recommended platform usage:
+
+- liveness checks should use `/health`
+- post-deploy verification and readiness checks should use `/ready`
+- human/operator diagnostics can use `/version`
 
 ## Storage portability
 
