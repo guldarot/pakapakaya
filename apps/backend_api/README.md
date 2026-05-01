@@ -21,6 +21,11 @@ Next:
 5. or run `docker compose up --build`
 6. use `PERSISTENCE_MODE=prisma` for the database-backed flow
 
+Production configuration:
+- use `.env.production.example` as the starting template
+- set `APP_VERSION` and `APP_REVISION` explicitly in deployed environments
+- production startup now fails fast if critical env vars are missing or still pointing at localhost
+
 For a fresh deploy target, prefer:
 - `npm run prisma:deploy`
 - then `npm run seed:demo` only for non-production demo environments

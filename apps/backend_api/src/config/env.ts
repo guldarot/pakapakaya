@@ -22,4 +22,45 @@ const envSchema = z.object({
   S3_PUBLIC_BASE_URL: z.string().optional(),
 });
 
-export const env = envSchema.parse(process.env);
+function isMissingRaw(name: string) {
+  const value = process.env[name];
+  return value == null || value.trim().length == 0;
+}
+
+function validateProductionEnv(parsedEnv: z.infer<typeof envSchema>) {
+  if (parsedEnv.NODE_ENV !== 'production') {
+    return;
+  }
+
+  const errors: string[] = [];
+
+  for (const requiredName of ['DATABASE_URL', 'CLIENT_ORIGIN', 'APP_VERSION', 'APP_REVISION']) {
+    if (isMissingRaw(requiredName)) {
+      errors.push(`${requiredName} must be explicitly set in production.`);
+    }
+  }
+
+  if (
+    parsedEnv.CLIENT_ORIGIN.startsWith('http://localhost:') ||
+    parsedEnv.CLIENT_ORIGIN.startsWith('http://127.0.0.1:')
+  ) {
+    errors.push('CLIENT_ORIGIN cannot point to localhost in production.');
+  }
+
+  if (parsedEnv.STORAGE_DRIVER === 'gcs' && isMissingRaw('GCS_BUCKET_NAME')) {
+    errors.push('GCS_BUCKET_NAME must be set when STORAGE_DRIVER=gcs.');
+  }
+
+  if (parsedEnv.STORAGE_DRIVER === 's3' && isMissingRaw('S3_BUCKET_NAME')) {
+    errors.push('S3_BUCKET_NAME must be set when STORAGE_DRIVER=s3.');
+  }
+
+  if (errors.length > 0) {
+    throw new Error(`Invalid production environment:\n- ${errors.join('\n- ')}`);
+  }
+}
+
+const parsedEnv = envSchema.parse(process.env);
+validateProductionEnv(parsedEnv);
+
+export const env = parsedEnv;

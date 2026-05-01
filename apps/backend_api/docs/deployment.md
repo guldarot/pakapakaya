@@ -56,6 +56,25 @@ The application itself should only know:
 - storage env vars
 - client origin
 
+## Production env validation
+
+When `NODE_ENV=production`, startup now fails fast unless the environment is explicit.
+
+Required in production:
+
+- `DATABASE_URL`
+- `CLIENT_ORIGIN`
+- `APP_VERSION`
+- `APP_REVISION`
+
+Additional production rules:
+
+- `CLIENT_ORIGIN` must not point to `localhost` or `127.0.0.1`
+- `GCS_BUCKET_NAME` is required when `STORAGE_DRIVER=gcs`
+- `S3_BUCKET_NAME` is required when `STORAGE_DRIVER=s3`
+
+Use [`.env.production.example`](../.env.production.example) as the baseline template.
+
 ## Runtime endpoints
 
 The container exposes three useful operational endpoints:

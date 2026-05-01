@@ -73,4 +73,16 @@ The backend now exposes:
 
 The Cloud Run workflow uses `/ready` as the post-deploy sanity check.
 
+For deployed environments, the backend now expects explicit production env configuration:
+
+- `APP_VERSION`
+- `APP_REVISION`
+- `DATABASE_URL`
+- `CLIENT_ORIGIN`
+
+See:
+
+- `apps/backend_api/.env.production.example`
+- `apps/backend_api/docs/deployment.md`
+
 If you later move away from Cloud Run, the CI workflows can stay mostly unchanged while only the deploy workflow changes.
