@@ -1,0 +1,53 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - '${_AR_HOST}/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE_NAME}:${SHORT_SHA}'
+      - '.'
+    dir: 'apps/backend_api'
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - '${_AR_HOST}/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE_NAME}:${SHORT_SHA}'
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - '${_SERVICE_NAME}'
+      - '--project=${PROJECT_ID}'
+      - '--region=${_REGION}'
+      - '--platform=managed'
+      - '--image=${_AR_HOST}/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE_NAME}:${SHORT_SHA}'
+      - '--allow-unauthenticated'
+      - '--service-account=${_RUNTIME_SERVICE_ACCOUNT}'
+      - '--add-cloudsql-instances=${_CLOUD_SQL_CONNECTION}'
+      - '--set-env-vars=NODE_ENV=production,PERSISTENCE_MODE=prisma,STORAGE_DRIVER=gcs,APP_VERSION=${SHORT_SHA},APP_REVISION=${COMMIT_SHA},CLIENT_ORIGIN=${_CLIENT_ORIGIN},GCS_BUCKET_NAME=${_GCS_BUCKET_NAME},GCS_PUBLIC_BASE_URL=${_GCS_PUBLIC_BASE_URL}'
+      - '--set-secrets=DATABASE_URL=${_DATABASE_URL_SECRET}:latest'
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: bash
+    args:
+      - '-c'
+      - |
+        URL="$$(gcloud run services describe ${_SERVICE_NAME} --project=${PROJECT_ID} --region=${_REGION} --format='value(status.url)')"
+        echo "Checking $$URL/ready"
+        curl --fail --show-error --silent "$$URL/ready"
+
+images:
+  - '${_AR_HOST}/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE_NAME}:${SHORT_SHA}'
+
+substitutions:
+  _REGION: 'asia-south1'
+  _AR_HOST: 'asia-south1-docker.pkg.dev'
+  _REPOSITORY: 'pakapakaya'
+  _SERVICE_NAME: 'pakapakaya-backend'
+  _CLIENT_ORIGIN: 'https://your-frontend-domain.example'
+  _GCS_BUCKET_NAME: 'pakapakaya-uploads'
+  _GCS_PUBLIC_BASE_URL: 'https://storage.googleapis.com/pakapakaya-uploads'
+  _DATABASE_URL_SECRET: 'pakapakaya-database-url'
+  _CLOUD_SQL_CONNECTION: 'PROJECT_ID:asia-south1:pakapakaya-db'
+  _RUNTIME_SERVICE_ACCOUNT: 'pakapakaya-backend-sa@PROJECT_ID.iam.gserviceaccount.com'
