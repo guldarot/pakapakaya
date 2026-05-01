@@ -21,6 +21,7 @@ steps:
       - '--project=${PROJECT_ID}'
       - '--region=${_REGION}'
       - '--platform=managed'
+      - '--port=8080'
       - '--image=${_AR_HOST}/${PROJECT_ID}/${_REPOSITORY}/${_SERVICE_NAME}:${SHORT_SHA}'
       - '--allow-unauthenticated'
       - '--service-account=${_RUNTIME_SERVICE_ACCOUNT}'

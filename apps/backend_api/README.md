@@ -30,6 +30,10 @@ For a fresh deploy target, prefer:
 - `npm run prisma:deploy`
 - then `npm run seed:demo` only for non-production demo environments
 
+Cloud Run note:
+- the container now starts the API server only
+- run `npm run prisma:deploy` as a separate release step instead of bundling migration into service startup
+
 Operational endpoints:
 - `/health`
 - `/ready`

@@ -9,7 +9,7 @@
     "test": "node --import tsx --test src/test/**/*.test.ts",
     "test:integration": "node --import tsx --test src/test/**/*.test.ts",
     "start": "node dist/server.js",
-    "start:container": "prisma migrate deploy && node dist/server.js",
+    "start:container": "node dist/server.js",
     "prisma:generate": "prisma generate",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:migrate": "prisma migrate dev",

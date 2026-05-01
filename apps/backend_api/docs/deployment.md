@@ -30,10 +30,16 @@ This starts:
 - `postgres` on `localhost:5432`
 - `backend` on `http://localhost:4000`
 
-The backend container runs:
+For local Docker, the backend container runs:
 
 ```text
-prisma migrate deploy && node dist/server.js
+node dist/server.js
+```
+
+Run migrations separately before or alongside release workflows:
+
+```text
+npm run prisma:deploy
 ```
 
 ## Google Cloud Run recommendation
@@ -46,6 +52,12 @@ Recommended pieces:
 - Cloud SQL for PostgreSQL for the database
 - Cloud Storage only through the storage abstraction
 - Secret Manager for runtime secrets
+
+Important Cloud Run startup guidance:
+
+- keep the Cloud Run container focused on starting the HTTP server
+- do not block service startup on `prisma migrate deploy`
+- run migrations as a separate release step so database problems fail clearly and do not surface as misleading port-health errors
 
 The application itself should only know:
 
@@ -94,6 +106,17 @@ Recommended platform usage:
 - liveness checks should use `/health`
 - post-deploy verification and readiness checks should use `/ready`
 - human/operator diagnostics can use `/version`
+
+## Cloud Run startup troubleshooting
+
+If Cloud Run says the container did not listen on `PORT=8080` in time, for this repo the most likely real causes are:
+
+- `DATABASE_URL` missing or malformed
+- Cloud SQL instance not attached
+- Cloud Run runtime service account missing `Cloud SQL Client`
+- production env validation failing on startup
+
+Because the container now starts only `node dist/server.js`, Cloud Run failures should be easier to interpret than when migrations were bundled into startup.
 
 ## Storage portability
 
